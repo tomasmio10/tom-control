@@ -18,14 +18,14 @@ interface OrderRow {
   payment_method: Order['paymentMethod']
   sale_total: number
   status: DatabaseOrderStatus
-  payment_status: string
+  payment_status: Order['paymentStatus']
   created_at: string
 }
 
 interface OrderItemRow { id: string; order_id: string; product_id: string; quantity: number; subtotal: number }
 interface FinancialRow { order_id: string; product_cost_total: number; seller_commission_amount: number; admin_commission_amount: number; shipping_cost: number; company_profit: number }
 interface CommissionRow { order_id: string; seller_commission_amount: number }
-interface CreateOrderRow { order_id: string; order_number: number; created_at: string; sale_total: number; status: DatabaseOrderStatus; payment_status: string }
+interface CreateOrderRow { order_id: string; order_number: number; created_at: string; sale_total: number; status: DatabaseOrderStatus; payment_status: Order['paymentStatus'] }
 
 interface OrdersContextValue {
   orders: Order[]

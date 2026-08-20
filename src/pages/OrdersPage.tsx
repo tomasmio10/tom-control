@@ -41,7 +41,7 @@ export function OrdersPage() {
             {admin && <td>{order.seller}</td>}
             <td>{order.items} unidades</td>
             <td><div className="order-status-cell"><span className={`status ${order.databaseStatus}`}>{order.status}</span>{admin && (order.databaseStatus === 'new' || order.databaseStatus === 'cancelled') && <button type="button" className={`status-action ${order.databaseStatus}`} onClick={(event) => { event.stopPropagation(); void changeStatus(order) }}>{order.databaseStatus === 'new' ? 'Cancelar' : 'Reactivar'}</button>}</div></td>
-            {admin && <><td>{formatCurrency(order.cost)}</td><td><small>Vend. {formatCurrency(order.sellerCommission)}</small><small>Adm. {formatCurrency(order.adminCommission)}</small></td><td className="profit">{formatCurrency(order.total - order.cost - order.sellerCommission - order.adminCommission)}</td></>}
+            {admin && <><td>{formatCurrency(order.cost)}</td><td><small>Vend. {formatCurrency(order.sellerCommission)}</small><small>Adm. {formatCurrency(order.adminCommission)}</small></td><td className="profit">{formatCurrency(order.companyProfit)}</td></>}
             {!admin && <td className="seller-commission"><strong>{formatCurrency(order.sellerCommission)}</strong><small>Valor calculado en Supabase</small></td>}
             <td className="money">{formatCurrency(order.total)}</td>
           </tr>

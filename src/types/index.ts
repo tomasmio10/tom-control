@@ -18,6 +18,29 @@ export interface Profile {
 export type OrderStatus = 'Pendiente' | 'Preparando' | 'Enviado' | 'Entregado' | 'Cancelado'
 export type DatabaseOrderStatus = 'new' | 'preparing' | 'shipped' | 'delivered' | 'cancelled'
 export type PaymentMethod = 'cash_sale' | 'bank_transfer' | 'cash' | 'credit'
+export type PaymentStatus = 'pending' | 'partial' | 'paid'
+
+export interface OrderCollectionSummary {
+  orderId: string
+  saleTotal: number
+  amountPaid: number
+  balanceDue: number
+  paymentStatus: PaymentStatus
+}
+
+export interface OrderPayment {
+  id: string
+  orderId: string
+  amount: number
+  paymentDate: string
+  note?: string
+  recordedBy: string
+  createdAt: string
+  isVoided: boolean
+  voidedAt?: string
+  voidedBy?: string
+  voidReason?: string
+}
 
 export interface OrderLine {
   productId: string
@@ -39,7 +62,7 @@ export interface Order {
   email?: string
   notes?: string
   paymentMethod: PaymentMethod
-  paymentStatus: string
+  paymentStatus: PaymentStatus
   sellerId: string
   seller: string
   items: number
