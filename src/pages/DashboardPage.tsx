@@ -78,9 +78,9 @@ export function DashboardPage() {
   }, 0)
   const receivable = validOrders.reduce((sum, order) => sum + Math.max(0, order.total - amountPaid(order)), 0)
   const activeOrders = validOrders.length
-  const sellerCommissions = validOrders.reduce((sum, order) => sum + order.sellerCommission, 0)
-  const adminCommissions = validOrders.reduce((sum, order) => sum + order.adminCommission, 0)
-  const companyProfit = validOrders.reduce((sum, order) => sum + order.companyProfit, 0)
+  const sellerCommissions = periodOrders.reduce((sum, order) => sum + order.sellerCommission, 0)
+  const adminCommissions = periodOrders.reduce((sum, order) => sum + order.adminCommission, 0)
+  const companyProfit = periodOrders.reduce((sum, order) => sum + order.companyProfit, 0)
   const margin = sales > 0 ? (companyProfit / sales) * 100 : 0
   const recentOrders = periodOrders.slice(0, 5)
   const periodLabel = periodOptions.find((option) => option.value === period)?.label ?? ''
@@ -91,7 +91,7 @@ export function DashboardPage() {
     {(error || dashboardError) && <div className="catalog-error" role="alert"><span>!</span><div><strong>No fue posible cargar el resumen</strong><p>{error || dashboardError}</p></div><button type="button" className="secondary-button" onClick={() => { void refreshOrders(); void refreshDashboardData() }}>Reintentar</button></div>}
     {(loading || dashboardLoading) && <div className="catalog-loading dashboard-loading" role="status"><span /><strong>Cargando información desde Supabase…</strong></div>}
     {admin ? <><section className="stats-grid dashboard-stats">
-      <StatCard label="Ventas totales" value={formatCurrency(sales)} detail={`Pedidos creados · ${periodLabel}`} tone="blue" />
+      <StatCard label="Ventas totales" value={formatCurrency(sales)} detail={`Ventas registradas · ${periodLabel}`} tone="blue" />
       <StatCard label="Ya cobrado" value={formatCurrency(collected)} detail={`Pagos vigentes recibidos · ${periodLabel}`} tone="green" />
       <StatCard label="Por cobrar" value={formatCurrency(receivable)} detail="Cartera vigente con saldo pendiente" tone="amber" />
       <StatCard label="Pedidos activos" value={String(activeOrders)} detail="Pedidos no cancelados" tone="slate" />
