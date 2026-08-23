@@ -63,13 +63,13 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     if (!user) { setOrders([]); setError(null); return }
     setLoading(true); setError(null)
     const orderResponse = await supabase.from('orders').select('id, order_number, seller_id, customer_name, customer_city, customer_phone, customer_email, customer_address, notes, payment_method, sale_total, status, payment_status, created_at').order('created_at', { ascending: false })
-    if (orderResponse.error) { setOrders([]); setError(readableOrderError(orderResponse.error)); setLoading(false); return }
+    if (orderResponse.error) { setError(readableOrderError(orderResponse.error)); setLoading(false); return }
     const orderRows = (orderResponse.data ?? []) as OrderRow[]
     const orderIds = orderRows.map((order) => order.id)
     let itemRows: OrderItemRow[] = []
     if (orderIds.length) {
       const itemResponse = await supabase.from('order_items').select('id, order_id, product_id, quantity, subtotal').in('order_id', orderIds).order('created_at')
-      if (itemResponse.error) { setOrders([]); setError(readableOrderError(itemResponse.error)); setLoading(false); return }
+      if (itemResponse.error) { setError(readableOrderError(itemResponse.error)); setLoading(false); return }
       itemRows = (itemResponse.data ?? []) as OrderItemRow[]
     }
 
@@ -77,11 +77,11 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     let commissions = new Map<string, number>()
     if (user.role === 'admin' && orderIds.length) {
       const financialResponse = await supabase.from('order_financials').select('order_id, product_cost_total, seller_commission_amount, admin_commission_amount, shipping_cost, company_profit').in('order_id', orderIds)
-      if (financialResponse.error) { setOrders([]); setError(readableOrderError(financialResponse.error)); setLoading(false); return }
+      if (financialResponse.error) { setError(readableOrderError(financialResponse.error)); setLoading(false); return }
       financials = new Map(((financialResponse.data ?? []) as FinancialRow[]).map((row) => [row.order_id, row]))
     } else if (user.role === 'seller') {
       const commissionResponse = await supabase.rpc('get_my_order_commissions')
-      if (commissionResponse.error) { setOrders([]); setError(readableOrderError(commissionResponse.error)); setLoading(false); return }
+      if (commissionResponse.error) { setError(readableOrderError(commissionResponse.error)); setLoading(false); return }
       commissions = new Map(((commissionResponse.data ?? []) as CommissionRow[]).map((row) => [row.order_id, Number(row.seller_commission_amount)]))
     }
 

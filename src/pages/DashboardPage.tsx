@@ -70,8 +70,9 @@ export function DashboardPage() {
   const validOrders = periodOrders.filter((order) => order.databaseStatus !== 'cancelled')
   const amountPaid = (order: Order) => Math.min(order.total, Math.max(0, paymentsByOrder.get(order.id) ?? 0))
   const sales = validOrders.reduce((sum, order) => sum + order.total, 0)
-  const collected = validOrders.reduce((sum, order) => sum + amountPaid(order), 0)
-  const receivable = Math.max(0, sales - collected)
+  const collected = periodOrders.reduce((sum, order) => sum + amountPaid(order), 0)
+  const collectedFromValidOrders = validOrders.reduce((sum, order) => sum + amountPaid(order), 0)
+  const receivable = Math.max(0, sales - collectedFromValidOrders)
   const activeOrders = validOrders.filter((order) => order.total - amountPaid(order) > 0).length
   const sellerCommissions = validOrders.reduce((sum, order) => sum + order.sellerCommission, 0)
   const adminCommissions = validOrders.reduce((sum, order) => sum + order.adminCommission, 0)
@@ -94,7 +95,7 @@ export function DashboardPage() {
     </section><section className="financial-strip"><div><span>Comisiones vendedores</span><strong>{formatCurrency(sellerCommissions)}</strong></div><div><span>Comisión administrativa</span><strong>{formatCurrency(adminCommissions)}</strong></div><div><span>Margen neto</span><strong>{margin.toFixed(1)}%</strong></div></section></> :
       <section className="stats-grid"><StatCard label="Mis ventas" value={formatCurrency(sales)} detail={`No cancelados · ${periodLabel}`} tone="blue" /><StatCard label="Mis pedidos" value={String(validOrders.length)} detail="Pedidos no cancelados" tone="amber" /><StatCard label="Clientes atendidos" value={String(new Set(validOrders.map((order) => order.client)).size)} detail="Actividad de tu cartera" tone="green" /><StatCard label="Mis comisiones" value={formatCurrency(sellerCommissions)} detail="Solo tus comisiones" tone="slate" /></section>}
     <section className="panel"><div className="panel-heading"><div><h2>Pedidos recientes</h2><p>Últimos 5 pedidos del período seleccionado</p></div><Link to="/pedidos">Ver todos →</Link></div><div className="table-wrap dashboard-table"><table><thead><tr><th>Pedido</th><th>Cliente</th>{admin && <th>Vendedor</th>}<th>Estado de cobro</th><th>Total</th><th>Cobrado</th><th>Por cobrar</th></tr></thead><tbody>{recentOrders.map((order) => {
-      const paid = order.databaseStatus === 'cancelled' ? 0 : amountPaid(order)
+      const paid = amountPaid(order)
       const due = order.databaseStatus === 'cancelled' ? 0 : Math.max(0, order.total - paid)
       const state = order.databaseStatus === 'cancelled' ? 'cancelled' : paid <= 0 ? 'pending' : due <= 0 ? 'paid' : 'partial'
       const label = state === 'cancelled' ? 'Cancelado' : paymentLabels[state]
