@@ -55,6 +55,7 @@ export interface Order {
   id: string
   orderNumber: string
   date: string
+  createdAt: string
   client: string
   address: string
   city?: string

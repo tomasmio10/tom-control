@@ -99,7 +99,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       const lines = linesByOrder.get(row.id) ?? []
       const financial = financials.get(row.id)
       return {
-        id: row.id, orderNumber: String(row.order_number), date: new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(row.created_at)),
+        id: row.id, orderNumber: String(row.order_number), date: new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(row.created_at)), createdAt: row.created_at,
         client: row.customer_name, address: row.customer_address ?? '', city: row.customer_city, phone: row.customer_phone ?? undefined, email: row.customer_email ?? undefined, notes: row.notes ?? undefined,
         paymentMethod: row.payment_method, paymentStatus: row.payment_status, sellerId: row.seller_id, seller: row.seller_id === user.id ? user.name : row.seller_id,
         items: lines.reduce((sum, line) => sum + line.quantity, 0), products: lines, total: Number(row.sale_total), cost: Number(financial?.product_cost_total ?? 0),
