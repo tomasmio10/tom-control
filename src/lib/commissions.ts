@@ -24,6 +24,20 @@ export async function getCommissionSummary() {
   return ((data ?? []) as SummaryRow[]).map(mapSummary)
 }
 
+export async function getCommissionPaymentsThisMonth() {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const toDate = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+  const { data, error } = await supabase
+    .from('seller_commission_payments')
+    .select('amount')
+    .gte('payment_date', toDate(monthStart))
+    .lt('payment_date', toDate(nextMonth))
+  if (error) throw new Error(readableCommissionError(error.message, error.code))
+  return (data ?? []).reduce((sum, payment) => sum + Number(payment.amount), 0)
+}
+
 export async function getCommissionDetail(sellerId: string) {
   const { data, error } = await supabase.rpc('get_seller_commission_detail', { p_seller_id: sellerId })
   if (error) throw new Error(readableCommissionError(error.message, error.code))
