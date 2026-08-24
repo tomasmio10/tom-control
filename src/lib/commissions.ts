@@ -14,7 +14,7 @@ interface SummaryRow {
 
 interface DetailRow {
   summary: SummaryRow
-  sales: Array<{ order_id: string; order_number: number; created_at: string; status: SellerCommissionDetail['sales'][number]['status']; sale_total: number | string; seller_commission_amount: number | string; is_payable: boolean }>
+  sales: Array<{ order_id: string; order_number: number; created_at: string; status: SellerCommissionDetail['sales'][number]['status']; sale_total: number | string; amount_paid: number | string; seller_commission_amount: number | string; generated_commission_amount: number | string; remaining_commission_amount: number | string; is_payable: boolean }>
   payments: Array<{ id: string; amount: number | string; payment_date: string; note: string | null; recorded_by: string; created_at: string }>
 }
 
@@ -44,7 +44,7 @@ export async function getCommissionDetail(sellerId: string) {
   const detail = data as unknown as DetailRow
   return {
     summary: mapSummary(detail.summary),
-    sales: (detail.sales ?? []).map((sale) => ({ orderId: sale.order_id, orderNumber: sale.order_number, createdAt: sale.created_at, status: sale.status, saleTotal: Number(sale.sale_total), sellerCommissionAmount: Number(sale.seller_commission_amount), isPayable: sale.is_payable })),
+    sales: (detail.sales ?? []).map((sale) => ({ orderId: sale.order_id, orderNumber: sale.order_number, createdAt: sale.created_at, status: sale.status, saleTotal: Number(sale.sale_total), amountPaid: Number(sale.amount_paid), sellerCommissionAmount: Number(sale.seller_commission_amount), generatedCommissionAmount: Number(sale.generated_commission_amount), remainingCommissionAmount: Number(sale.remaining_commission_amount), isPayable: sale.is_payable })),
     payments: (detail.payments ?? []).map((payment) => ({ id: payment.id, amount: Number(payment.amount), paymentDate: payment.payment_date, note: payment.note, recordedBy: payment.recorded_by, createdAt: payment.created_at })),
   } satisfies SellerCommissionDetail
 }

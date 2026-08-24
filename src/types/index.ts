@@ -164,7 +164,10 @@ export interface SellerCommissionSale {
   createdAt: string
   status: DatabaseOrderStatus
   saleTotal: number
+  amountPaid: number
   sellerCommissionAmount: number
+  generatedCommissionAmount: number
+  remainingCommissionAmount: number
   isPayable: boolean
 }
 

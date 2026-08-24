@@ -13,6 +13,7 @@ import '../dashboard.css'
 type Period = 'today' | 'week' | 'month' | 'year' | 'all'
 interface PaymentRow { order_id: string; amount: number; payment_date: string; is_voided: boolean }
 interface ProfileRow { id: string; full_name: string }
+interface CollectionSummaryRow { order_id: string; sale_total: number | string; amount_paid: number | string; balance_due: number | string; payment_status: PaymentStatus }
 
 const periodOptions: Array<{ value: Period; label: string }> = [
   { value: 'today', label: 'Hoy' }, { value: 'week', label: 'Esta semana' },
@@ -37,41 +38,53 @@ export function DashboardPage() {
   const admin = user?.role === 'admin'
   const [period, setPeriod] = useState<Period>('month')
   const [payments, setPayments] = useState<PaymentRow[]>([])
+  const [collections, setCollections] = useState<Map<string, CollectionSummaryRow>>(new Map())
   const [sellerNames, setSellerNames] = useState<Map<string, string>>(new Map())
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
   const [sellerCommissionSummary, setSellerCommissionSummary] = useState<SellerCommissionSummary | null>(null)
-  const visibleOrders = getOrdersForUser(user)
+  const visibleOrders = useMemo(() => getOrdersForUser(user), [getOrdersForUser, user])
   const visibleOrderIds = useMemo(() => visibleOrders.map((order) => order.id), [visibleOrders])
 
   const refreshDashboardData = useCallback(async () => {
     if (!user) {
-      setPayments([]); setSellerNames(new Map()); setSellerCommissionSummary(null); setDashboardError(''); return
+      setPayments([]); setCollections(new Map()); setSellerNames(new Map()); setSellerCommissionSummary(null); setDashboardError(''); return
     }
     if (user.role === 'seller') {
       setDashboardLoading(true); setDashboardError('')
-      try {
-        const summaries = await getCommissionSummary()
-        setSellerCommissionSummary(summaries.find((summary) => summary.sellerId === user.id) ?? null)
-      } catch (cause) { setDashboardError(cause instanceof Error ? cause.message : 'No fue posible cargar tus comisiones.') }
-      finally { setDashboardLoading(false) }
+      const [commissionResult, collectionsResult] = await Promise.allSettled([
+        getCommissionSummary(),
+        getCollectionSummaries(visibleOrderIds),
+      ])
+      const messages: string[] = []
+      if (commissionResult.status === 'fulfilled') setSellerCommissionSummary(commissionResult.value.find((summary) => summary.sellerId === user.id) ?? null)
+      else messages.push(commissionResult.reason instanceof Error ? commissionResult.reason.message : 'No fue posible cargar tus comisiones.')
+      if (collectionsResult.status === 'fulfilled') {
+        setCollections(collectionsResult.value.summaries)
+        messages.push(...collectionsResult.value.errors)
+      } else messages.push(collectionsResult.reason instanceof Error ? collectionsResult.reason.message : 'No fue posible cargar los cobros de tus pedidos.')
+      setDashboardError(messages.join(' '))
+      setDashboardLoading(false)
       return
     }
     if (!visibleOrderIds.length) {
-      setPayments([]); setSellerNames(new Map()); setSellerCommissionSummary(null); setDashboardError(''); return
+      setPayments([]); setCollections(new Map()); setSellerNames(new Map()); setSellerCommissionSummary(null); setDashboardError(''); return
     }
     setDashboardLoading(true); setDashboardError('')
     const sellerIds = [...new Set(visibleOrders.map((order) => order.sellerId))]
-    const [paymentsResponse, profilesResponse] = await Promise.all([
+    const [paymentsResponse, profilesResponse, collectionsResult] = await Promise.all([
       supabase.from('order_payments').select('order_id, amount, payment_date, is_voided').in('order_id', visibleOrderIds),
       supabase.from('profiles').select('id, full_name').in('id', sellerIds),
+      getCollectionSummaries(visibleOrderIds),
     ])
     if (paymentsResponse.error || profilesResponse.error) {
       setDashboardError(paymentsResponse.error?.message || profilesResponse.error?.message || 'No fue posible cargar los datos del Dashboard.')
       setDashboardLoading(false); return
     }
     setPayments((paymentsResponse.data ?? []) as PaymentRow[])
+    setCollections(collectionsResult.summaries)
     setSellerNames(new Map(((profilesResponse.data ?? []) as ProfileRow[]).map((profile) => [profile.id, profile.full_name])))
+    if (collectionsResult.errors.length) setDashboardError(collectionsResult.errors.join(' '))
     setDashboardLoading(false)
   }, [user, visibleOrderIds, visibleOrders])
 
@@ -84,7 +97,7 @@ export function DashboardPage() {
   payments.forEach((payment) => {
     if (!payment.is_voided) paymentsByOrder.set(payment.order_id, (paymentsByOrder.get(payment.order_id) ?? 0) + Number(payment.amount))
   })
-  const amountPaid = (order: Order) => Math.min(order.total, Math.max(0, paymentsByOrder.get(order.id) ?? 0))
+  const amountPaid = (order: Order) => Math.min(order.total, Math.max(0, Number(collections.get(order.id)?.amount_paid ?? paymentsByOrder.get(order.id) ?? 0)))
   const sales = periodOrders.reduce((sum, order) => sum + order.total, 0)
   const collected = payments.reduce((sum, payment) => {
     if (payment.is_voided || (start && new Date(`${payment.payment_date}T00:00:00`) < start)) return sum
@@ -121,4 +134,21 @@ export function DashboardPage() {
       return <tr key={order.id} className="clickable-row" tabIndex={0} aria-label={`Abrir detalle del pedido ${order.orderNumber}`} onClick={openOrder} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openOrder() } }}><td><strong>#{order.orderNumber}</strong><small>{order.date}</small></td><td>{order.client}</td>{admin && <td>{sellerNames.get(order.sellerId) ?? (order.sellerId === user?.id ? user.name : 'Vendedor')}</td>}<td><span className={`collection-status ${state}`}>{label}</span></td><td className="money">{formatCurrency(order.total)}</td><td className="money collected-money">{formatCurrency(paid)}</td><td className="money due-money">{formatCurrency(due)}</td></tr>
     })}</tbody></table></div>{!recentOrders.length && <div className="dashboard-empty">No hay pedidos en el período seleccionado.</div>}</section>
   </>
+}
+
+async function getCollectionSummaries(orderIds: string[]) {
+  const results = await Promise.allSettled(orderIds.map(async (orderId) => {
+    const response = await supabase.rpc('get_order_collection_summary', { p_order_id: orderId })
+    if (response.error) throw response.error
+    const row = (Array.isArray(response.data) ? response.data[0] : response.data) as CollectionSummaryRow | null
+    if (!row) throw new Error(`No fue posible obtener el cobro del pedido ${orderId}.`)
+    return row
+  }))
+  const summaries = new Map<string, CollectionSummaryRow>()
+  const errors: string[] = []
+  results.forEach((result) => {
+    if (result.status === 'fulfilled') summaries.set(result.value.order_id, result.value)
+    else errors.push(result.reason instanceof Error ? result.reason.message : 'No fue posible cargar un cobro del Dashboard.')
+  })
+  return { summaries, errors }
 }
