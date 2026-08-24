@@ -10,6 +10,7 @@ import { OrderDetailPage } from './pages/OrderDetailPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { UnauthorizedPage } from './pages/UnauthorizedPage'
 import { UsersPage } from './pages/UsersPage'
+import { SetPasswordPage } from './pages/SetPasswordPage'
 import './App.css'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
+      <Route path="/establecer-contrasena" element={<SetPasswordPage />} />
       <Route element={<ProtectedRoute allowedRoles={['admin', 'seller']} />}>
         <Route element={<AppLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
