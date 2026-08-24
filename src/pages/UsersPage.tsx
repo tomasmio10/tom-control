@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { InviteUserModal } from '../components/users/InviteUserModal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { invokeAdminUsers } from '../lib/adminUsers'
 import type { UserRole } from '../types'
 
 interface AdminUserRow {
@@ -26,9 +26,11 @@ export function UsersPage() {
   const refreshUsers = useCallback(async () => {
     if (user?.role !== 'admin' || !user.active) return
     setLoading(true); setError('')
-    const { data, error: functionError } = await supabase.functions.invoke('admin-users', { method: 'GET' })
-    if (functionError) setError(await readableFunctionError(functionError, 'No fue posible cargar los usuarios.'))
-    else setUsers((data?.users ?? []) as AdminUserRow[])
+    try {
+      const { data, error: functionError } = await invokeAdminUsers<{ users: AdminUserRow[] }>({ method: 'GET' })
+      if (functionError) setError(await readableFunctionError(functionError, 'No fue posible cargar los usuarios.'))
+      else setUsers(data?.users ?? [])
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible cargar los usuarios.') }
     setLoading(false)
   }, [user])
 

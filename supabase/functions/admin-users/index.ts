@@ -29,13 +29,33 @@ Deno.serve(async (request: Request) => {
   const authorization = request.headers.get('Authorization')
   if (!authorization?.startsWith('Bearer ')) return response(request, 401, { error: 'Se requiere una sesión autenticada.' })
 
-  const callerClient = createClient(supabaseUrl, publishableKey, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } })
-  const { data: callerData, error: callerError } = await callerClient.auth.getUser()
-  if (callerError || !callerData.user) return response(request, 401, { error: 'La sesión no es válida o expiró.' })
-
   const adminClient = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
-  const { data: profile, error: profileError } = await adminClient.from('profiles').select('role, is_active').eq('id', callerData.user.id).single()
-  if (profileError || profile?.role !== 'admin' || !profile.is_active) return response(request, 403, { error: 'Solo un administrador activo puede gestionar usuarios.' })
+  const accessToken = authorization.slice('Bearer '.length).trim()
+  const { data: callerData, error: callerError } = await adminClient.auth.getUser(accessToken)
+  if (callerError || !callerData.user) {
+    console.warn('admin-users auth_failed', { errorCode: callerError?.code ?? 'missing_user' })
+    return response(request, 401, { error: 'La sesión no es válida o expiró.' })
+  }
+
+  const callerId = callerData.user.id
+  const { data: profile, error: profileError } = await adminClient.from('profiles').select('id, role, is_active').eq('id', callerId).maybeSingle()
+  if (profileError) {
+    console.error('admin-users profile_read_failed', { callerId, errorCode: profileError.code })
+    return response(request, 500, { error: 'No fue posible verificar el perfil administrativo.' })
+  }
+  if (!profile) {
+    console.warn('admin-users profile_missing', { callerId })
+    return response(request, 403, { error: 'La cuenta autenticada no tiene un perfil asociado.' })
+  }
+  if (profile.id !== callerId || profile.role !== 'admin') {
+    console.warn('admin-users role_denied', { callerId, profileIdMatches: profile.id === callerId, role: profile.role })
+    return response(request, 403, { error: 'El perfil autenticado no tiene rol de administrador.' })
+  }
+  if (profile.is_active !== true) {
+    console.warn('admin-users inactive_denied', { callerId, isActive: profile.is_active })
+    return response(request, 403, { error: 'El perfil administrador está inactivo.' })
+  }
+  console.info('admin-users authorization_ok', { callerId, method: request.method })
 
   if (request.method === 'GET') {
     const [{ data: authData, error: authError }, { data: profiles, error: profilesError }] = await Promise.all([

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { supabase } from '../../lib/supabase'
+import { invokeAdminUsers } from '../../lib/adminUsers'
 import type { UserRole } from '../../types'
 
 export function InviteUserModal({ onClose, onInvited }: { onClose: () => void; onInvited: (email: string) => Promise<void> }) {
@@ -15,9 +15,11 @@ export function InviteUserModal({ onClose, onInvited }: { onClose: () => void; o
     if (!fullName.trim() || !normalizedEmail) { setError('Nombre completo, correo electrónico y rol son obligatorios.'); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) { setError('Ingresa un correo electrónico válido.'); return }
     setSaving(true)
-    const { error: functionError } = await supabase.functions.invoke('admin-users', { body: { fullName: fullName.trim(), email: normalizedEmail, role } })
-    if (functionError) setError(await inviteError(functionError))
-    else await onInvited(normalizedEmail)
+    try {
+      const { error: functionError } = await invokeAdminUsers({ body: { fullName: fullName.trim(), email: normalizedEmail, role } })
+      if (functionError) setError(await inviteError(functionError))
+      else await onInvited(normalizedEmail)
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible enviar la invitación.') }
     setSaving(false)
   }
 
