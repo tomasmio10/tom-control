@@ -5,6 +5,7 @@ const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: '⌂', roles: ['admin', 'seller'] },
   { to: '/pedidos', label: 'Pedidos', icon: '▤', roles: ['admin', 'seller'] },
   { to: '/productos', label: 'Productos', icon: '◇', roles: ['admin', 'seller'] },
+  { to: '/comisiones', label: 'Comisiones', icon: '$', roles: ['admin', 'seller'] },
   { to: '/usuarios', label: 'Usuarios', icon: '◎', roles: ['admin'] },
 ] as const
 

@@ -6,7 +6,8 @@ import { useAuth } from '../context/AuthContext'
 import { useOrders } from '../context/OrdersContext'
 import { formatCurrency } from '../data/mockData'
 import { supabase } from '../lib/supabase'
-import type { Order, PaymentStatus } from '../types'
+import { getCommissionSummary } from '../lib/commissions'
+import type { Order, PaymentStatus, SellerCommissionSummary } from '../types'
 import '../dashboard.css'
 
 type Period = 'today' | 'week' | 'month' | 'year' | 'all'
@@ -39,12 +40,25 @@ export function DashboardPage() {
   const [sellerNames, setSellerNames] = useState<Map<string, string>>(new Map())
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
+  const [sellerCommissionSummary, setSellerCommissionSummary] = useState<SellerCommissionSummary | null>(null)
   const visibleOrders = getOrdersForUser(user)
   const visibleOrderIds = useMemo(() => visibleOrders.map((order) => order.id), [visibleOrders])
 
   const refreshDashboardData = useCallback(async () => {
-    if (!admin || !visibleOrderIds.length) {
-      setPayments([]); setSellerNames(new Map()); setDashboardError(''); return
+    if (!user) {
+      setPayments([]); setSellerNames(new Map()); setSellerCommissionSummary(null); setDashboardError(''); return
+    }
+    if (user.role === 'seller') {
+      setDashboardLoading(true); setDashboardError('')
+      try {
+        const summaries = await getCommissionSummary()
+        setSellerCommissionSummary(summaries.find((summary) => summary.sellerId === user.id) ?? null)
+      } catch (cause) { setDashboardError(cause instanceof Error ? cause.message : 'No fue posible cargar tus comisiones.') }
+      finally { setDashboardLoading(false) }
+      return
+    }
+    if (!visibleOrderIds.length) {
+      setPayments([]); setSellerNames(new Map()); setSellerCommissionSummary(null); setDashboardError(''); return
     }
     setDashboardLoading(true); setDashboardError('')
     const sellerIds = [...new Set(visibleOrders.map((order) => order.sellerId))]
@@ -59,7 +73,7 @@ export function DashboardPage() {
     setPayments((paymentsResponse.data ?? []) as PaymentRow[])
     setSellerNames(new Map(((profilesResponse.data ?? []) as ProfileRow[]).map((profile) => [profile.id, profile.full_name])))
     setDashboardLoading(false)
-  }, [admin, visibleOrderIds, visibleOrders])
+  }, [user, visibleOrderIds, visibleOrders])
 
   useEffect(() => { const timer = window.setTimeout(() => void refreshDashboardData(), 0); return () => window.clearTimeout(timer) }, [refreshDashboardData])
 
@@ -97,7 +111,7 @@ export function DashboardPage() {
       <StatCard label="Pedidos activos" value={String(activeOrders)} detail="Pedidos no cancelados" tone="slate" />
       <StatCard label="Ganancia empresa" value={formatCurrency(companyProfit)} detail="Después de costos, comisiones y envío" tone="green" />
     </section><section className="financial-strip"><div><span>Comisiones vendedores</span><strong>{formatCurrency(sellerCommissions)}</strong></div><div><span>Comisión administrativa</span><strong>{formatCurrency(adminCommissions)}</strong></div><div><span>Margen neto</span><strong>{margin.toFixed(1)}%</strong></div></section></> :
-      <section className="stats-grid"><StatCard label="Mis ventas" value={formatCurrency(sales)} detail={`Pedidos creados · ${periodLabel}`} tone="blue" /><StatCard label="Mis pedidos" value={String(validOrders.length)} detail="Pedidos no cancelados" tone="amber" /><StatCard label="Clientes atendidos" value={String(new Set(validOrders.map((order) => order.client)).size)} detail="Actividad de tu cartera" tone="green" /><StatCard label="Mis comisiones" value={formatCurrency(sellerCommissions)} detail="Solo tus comisiones" tone="slate" /></section>}
+      <section className="stats-grid seller-dashboard-stats"><StatCard label="Mis ventas" value={formatCurrency(sales)} detail={`Pedidos creados · ${periodLabel}`} tone="blue" /><StatCard label="Mis pedidos" value={String(validOrders.length)} detail="Pedidos no cancelados" tone="amber" /><StatCard label="Clientes atendidos" value={String(new Set(validOrders.map((order) => order.client)).size)} detail="Actividad de tu cartera" tone="green" /><article className="seller-dashboard-commissions"><div className="seller-dashboard-commission-heading"><span>Resumen de comisiones</span><Link to="/comisiones">Ver detalle de comisiones →</Link></div><div className="seller-dashboard-commission-values"><div><span>Comisiones totales</span><strong>{formatCurrency(sellerCommissionSummary?.payableCommission ?? 0)}</strong></div><div><span>Comisiones pagadas</span><strong>{formatCurrency(sellerCommissionSummary?.paidCommission ?? 0)}</strong></div><div><span>Comisiones no pagadas</span><strong>{formatCurrency(sellerCommissionSummary?.pendingCommission ?? 0)}</strong></div></div></article></section>}
     <section className="panel"><div className="panel-heading"><div><h2>Pedidos recientes</h2><p>Últimos 5 pedidos del período seleccionado</p></div><Link to="/pedidos">Ver todos →</Link></div><div className="table-wrap dashboard-table"><table><thead><tr><th>Pedido</th><th>Cliente</th>{admin && <th>Vendedor</th>}<th>Estado de cobro</th><th>Total</th><th>Cobrado</th><th>Por cobrar</th></tr></thead><tbody>{recentOrders.map((order) => {
       const paid = amountPaid(order)
       const due = order.databaseStatus === 'cancelled' ? 0 : Math.max(0, order.total - paid)

@@ -146,3 +146,39 @@ export interface AppUser extends SessionUser {
   status: 'Activo' | 'Inactivo'
   lastAccess: string
 }
+
+export interface SellerCommissionSummary {
+  sellerId: string
+  fullName: string
+  validSales: number
+  payableCommission: number
+  cancelledCommission: number
+  paidCommission: number
+  overpaidCommission: number
+  pendingCommission: number
+}
+
+export interface SellerCommissionSale {
+  orderId: string
+  orderNumber: number
+  createdAt: string
+  status: DatabaseOrderStatus
+  saleTotal: number
+  sellerCommissionAmount: number
+  isPayable: boolean
+}
+
+export interface SellerCommissionPayment {
+  id: string
+  amount: number
+  paymentDate: string
+  note: string | null
+  recordedBy: string
+  createdAt: string
+}
+
+export interface SellerCommissionDetail {
+  summary: SellerCommissionSummary
+  sales: SellerCommissionSale[]
+  payments: SellerCommissionPayment[]
+}

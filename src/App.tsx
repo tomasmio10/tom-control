@@ -12,6 +12,8 @@ import { UnauthorizedPage } from './pages/UnauthorizedPage'
 import { UsersPage } from './pages/UsersPage'
 import { SetPasswordPage } from './pages/SetPasswordPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { CommissionsPage } from './pages/CommissionsPage'
+import { SellerCommissionDetailPage } from './pages/SellerCommissionDetailPage'
 import './App.css'
 
 function App() {
@@ -25,6 +27,8 @@ function App() {
         <Route element={<AppLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="productos" element={<ProductsPage />} />
+          <Route path="comisiones" element={<CommissionsPage />} />
+          <Route path="comisiones/:sellerId" element={<SellerCommissionDetailPage />} />
           <Route path="pedidos">
             <Route index element={<OrdersPage />} />
             <Route path="nuevo" element={<NewOrderPage />} />
