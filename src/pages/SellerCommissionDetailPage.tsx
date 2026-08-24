@@ -49,7 +49,7 @@ function formatDate(value: string) {
 }
 
 function getSaleCommissionState(isPayable: boolean, detail: SellerCommissionDetail) {
-  if (!isPayable) return { label: 'No pagable', tone: 'informative' }
+  if (!isPayable) return { label: 'Cancelada — sin comisión', tone: 'informative' }
   if (detail.summary.paidCommission <= 0) return { label: 'Pendiente', tone: 'pending' }
   if (detail.summary.pendingCommission <= 0) return { label: 'Pagada', tone: 'payable' }
   return { label: 'Pago parcial global', tone: 'partial' }
