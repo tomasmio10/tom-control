@@ -31,6 +31,10 @@ Deno.serve(async (request: Request) => {
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const accessToken = authorization.slice('Bearer '.length).trim()
+  const callerClient = createClient(supabaseUrl, publishableKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
   const { data: callerData, error: callerError } = await adminClient.auth.getUser(accessToken)
   if (callerError || !callerData.user) {
     console.warn('admin-users auth_failed', { errorCode: callerError?.code ?? 'missing_user' })
@@ -38,10 +42,15 @@ Deno.serve(async (request: Request) => {
   }
 
   const callerId = callerData.user.id
-  const { data: profile, error: profileError } = await adminClient.from('profiles').select('id, role, is_active').eq('id', callerId).maybeSingle()
+  const { data: profile, error: profileError } = await callerClient.from('profiles').select('id, role, is_active').eq('id', callerId).maybeSingle()
   if (profileError) {
-    console.error('admin-users profile_read_failed', { callerId, errorCode: profileError.code })
-    return response(request, 500, { error: 'No fue posible verificar el perfil administrativo.' })
+    console.error('admin-users profile_read_failed', { callerId, errorCode: profileError.code, errorMessage: profileError.message })
+    const permissionDenied = profileError.code === '42501' || /permission|policy|rls/i.test(profileError.message)
+    return response(request, permissionDenied ? 403 : 500, {
+      error: permissionDenied
+        ? 'Las polÃ­ticas RLS no permiten leer el perfil autenticado.'
+        : 'No fue posible verificar el perfil administrativo.',
+    })
   }
   if (!profile) {
     console.warn('admin-users profile_missing', { callerId })
@@ -58,11 +67,22 @@ Deno.serve(async (request: Request) => {
   console.info('admin-users authorization_ok', { callerId, method: request.method })
 
   if (request.method === 'GET') {
-    const [{ data: authData, error: authError }, { data: profiles, error: profilesError }] = await Promise.all([
-      adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      adminClient.from('profiles').select('id, full_name, role, is_active'),
-    ])
-    if (authError || profilesError) return response(request, 500, { error: 'No fue posible consultar los usuarios registrados.' })
+    const { data: authData, error: authError } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    if (authError) {
+      console.error('admin-users auth_list_failed', { callerId, errorCode: authError.code, errorMessage: authError.message })
+      return response(request, 500, { error: 'No fue posible consultar las cuentas de autenticaciÃ³n.' })
+    }
+
+    const { data: profiles, error: profilesError } = await callerClient.from('profiles').select('id, full_name, role, is_active')
+    if (profilesError) {
+      console.error('admin-users profiles_list_failed', { callerId, errorCode: profilesError.code, errorMessage: profilesError.message })
+      const permissionDenied = profilesError.code === '42501' || /permission|policy|rls/i.test(profilesError.message)
+      return response(request, permissionDenied ? 403 : 500, {
+        error: permissionDenied
+          ? 'Las polÃ­ticas RLS no permiten al administrador consultar el equipo.'
+          : 'No fue posible consultar los perfiles registrados.',
+      })
+    }
     const authUsers = new Map((authData?.users ?? []).map((user) => [user.id, user]))
     const users = (profiles ?? []).map((item) => {
       const authUser = authUsers.get(item.id)
@@ -90,8 +110,9 @@ Deno.serve(async (request: Request) => {
     return response(request, duplicate ? 409 : 400, { error: duplicate ? 'El correo ya está registrado.' : (inviteError?.message || 'No fue posible enviar la invitación.') })
   }
 
-  const { error: upsertError } = await adminClient.from('profiles').upsert({ id: invited.user.id, full_name: fullName, role, is_active: true }, { onConflict: 'id' })
+  const { error: upsertError } = await callerClient.from('profiles').upsert({ id: invited.user.id, full_name: fullName, role, is_active: true }, { onConflict: 'id' })
   if (upsertError) {
+    console.error('admin-users profile_upsert_failed', { callerId, invitedUserId: invited.user.id, errorCode: upsertError.code, errorMessage: upsertError.message })
     await adminClient.auth.admin.deleteUser(invited.user.id)
     return response(request, 500, { error: 'No fue posible crear el perfil. La invitación fue revertida.' })
   }
